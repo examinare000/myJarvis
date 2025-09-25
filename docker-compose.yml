@@ -1,0 +1,75 @@
+services:
+  # フロントエンド (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3001/api/v1
+      - VITE_WS_URL=ws://localhost:3001/ws
+    depends_on:
+      - backend
+    networks:
+      - myjarvis-network
+    restart: unless-stopped
+
+  # バックエンド (Node.js + Express + Prisma)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./data/sqlite:/app/data
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:./data/myjarvis.db
+      - JWT_SECRET=your_jwt_secret_here_change_in_production
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - ai-service
+    networks:
+      - myjarvis-network
+    restart: unless-stopped
+
+  # AI・ML処理サービス (Python + Ollama)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+      - "11434:11434"  # Ollama API port
+    volumes:
+      - ./ai-service:/app
+      - ollama-data:/root/.ollama
+    environment:
+      - PYTHONPATH=/app
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - myjarvis-network
+    restart: unless-stopped
+    # GPUサポート (利用可能な場合)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+networks:
+  myjarvis-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local
