@@ -53,6 +53,7 @@ export const initializeWebSocket = (httpServer: HttpServer): Server => {
         }
 
         // Stream response chunks to client
+        // @ts-ignore - node-fetch typing issue
         const reader = response.body?.getReader();
         if (!reader) {
           throw new Error('No response body');

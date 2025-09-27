@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import type { Prisma } from '@prisma/client';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 
 type AuthenticatedUser = {
@@ -36,10 +35,10 @@ const generateTokens = (user: AuthenticatedUser) => {
   const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
 
   const payload = { sub: user.id, email: user.email, name: user.name };
-  const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
+  const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn } as SignOptions);
   const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, refreshSecret, {
     expiresIn: refreshExpiresIn,
-  });
+  } as SignOptions);
 
   return { accessToken, refreshToken };
 };
@@ -88,7 +87,7 @@ router.post('/register', async (req, res) => {
         email,
         name,
         passwordHash,
-      } as unknown as Prisma.UserCreateInput,
+      },
     })) as AuthenticatedUser;
 
     const { accessToken, refreshToken } = generateTokens(createdUser);

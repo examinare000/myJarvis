@@ -11,7 +11,7 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
  * POST /api/v1/ai/chat
  * Proxy chat requests to the AI service
  */
-router.post('/chat', /* authenticateToken, */ async (req: Request, res: Response) => {
+router.post('/chat', /* authenticateToken, */ async (req: Request, res: Response): Promise<Response | void> => {
   const { stream = false } = req.body;
 
   try {
@@ -53,7 +53,7 @@ router.post('/chat', /* authenticateToken, */ async (req: Request, res: Response
  * GET /api/v1/ai/models
  * Get available AI models from the AI service
  */
-router.get('/models', /* authenticateToken, */ async (req: Request, res: Response) => {
+router.get('/models', /* authenticateToken, */ async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const response = await fetch(`${AI_SERVICE_URL}/ollama/models`);
 
