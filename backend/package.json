@@ -15,7 +15,12 @@
     "type-check": "tsc --noEmit",
     "test": "jest"
   },
-  "keywords": ["ai", "assistant", "scheduling", "tasks"],
+  "keywords": [
+    "ai",
+    "assistant",
+    "scheduling",
+    "tasks"
+  ],
   "author": "myJarvis Team",
   "license": "MIT",
   "dependencies": {
@@ -35,14 +40,18 @@
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.9.0",
+    "@types/supertest": "^6.0.3",
     "@types/ws": "^8.5.9",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "eslint": "^8.53.0",
     "jest": "^29.7.0",
     "prisma": "^5.6.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.4",
     "tsx": "^4.1.4",
     "typescript": "^5.2.2"
   }

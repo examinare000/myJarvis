@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,199 +7,54 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ユーザー情報
+enum TaskStatus {
+  TODO        @map("todo")
+  IN_PROGRESS @map("in_progress")
+  DONE        @map("done")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String
-  timezone    String   @default("Asia/Tokyo")
-  preferences String?  // ユーザー設定 (JSON文字列として保存)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  // リレーション
   tasks         Task[]
-  events        Event[]
-  notifications Notification[]
-  integrations  Integration[]
-  satisfactionLogs SatisfactionLog[]
-
-  @@map("users")
+  conversations Conversation[]
 }
 
-// タスク
 model Task {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   title       String
   description String?
-  status      String @default("PENDING") // TaskStatus enum: PENDING, IN_PROGRESS, COMPLETED, CANCELLED, DEFERRED
-  priority    String @default("MEDIUM") // Priority enum: LOW, MEDIUM, HIGH, CRITICAL
-  urgency     String @default("MEDIUM") // Priority enum: LOW, MEDIUM, HIGH, CRITICAL
-
-  // 時間関連
-  estimatedMinutes Int?
-  actualMinutes    Int?
-  dueDate         DateTime?
-  startDate       DateTime?
-  completedAt     DateTime?
-
-  // メタデータ
-  tags        String    // JSON配列として保存
-  category    String?
-  sourceType  String?   // "manual", "google_tasks", "email", etc.
-  sourceId    String?   // 外部サービスのID
-
-  // AI関連
-  aiGenerated Boolean   @default(false)
-  parentTaskId String?  // 分解前の元タスク
-
-  // 外部キー
+  status      TaskStatus  @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // リレーション
-  parentTask  Task?     @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
-  subtasks    Task[]    @relation("TaskHierarchy")
-
-  @@map("tasks")
+  @@index([userId, status])
+  @@index([userId, dueDate])
 }
 
-// カレンダーイベント
-model Event {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  startTime   DateTime
-  endTime     DateTime
-  allDay      Boolean  @default(false)
-  location    String?
+model Conversation {
+  id        String   @id @default(cuid())
+  messages  Json
+  userId    String
+  createdAt DateTime @default(now())
 
-  // メタデータ
-  sourceType  String?  // "manual", "google_calendar", etc.
-  sourceId    String?  // 外部サービスのID
-  eventType   String?  // "meeting", "personal", "break", etc.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // 外部キー
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("events")
+  @@index([userId, createdAt])
 }
-
-// 通知
-model Notification {
-  id          String           @id @default(cuid())
-  title       String
-  message     String
-  type        String // NotificationType enum: TASK_REMINDER, SCHEDULE_UPDATE, DAILY_SUMMARY, BREAK_SUGGESTION, SYSTEM_ALERT
-  priority    String @default("MEDIUM") // Priority enum: LOW, MEDIUM, HIGH, CRITICAL
-
-  // タイミング
-  scheduledFor DateTime
-  sentAt       DateTime?
-  readAt       DateTime?
-
-  // 関連データ
-  relatedType  String?  // "task", "event", etc.
-  relatedId    String?  // 関連オブジェクトのID
-
-  // 外部キー
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("notifications")
-}
-
-// 外部サービス連携
-model Integration {
-  id            String            @id @default(cuid())
-  serviceType   String // IntegrationType enum: GOOGLE_CALENDAR, GOOGLE_TASKS, GMAIL, SLACK, MICROSOFT_TODO, OUTLOOK, ASANA, TRELLO
-  serviceName   String
-
-  // 認証情報（暗号化して保存）
-  accessToken   String?
-  refreshToken  String?
-  tokenExpiry   DateTime?
-
-  // 設定
-  isActive      Boolean           @default(true)
-  syncInterval  Int               @default(15) // 分単位
-  lastSyncAt    DateTime?
-
-  // メタデータ
-  settings      String?           // サービス固有の設定 (JSON文字列として保存)
-
-  // 外部キー
-  userId        String
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  @@unique([userId, serviceType])
-  @@map("integrations")
-}
-
-// 満足度ログ
-model SatisfactionLog {
-  id            String   @id @default(cuid())
-  date          DateTime
-
-  // 満足度スコア (1-10)
-  overallScore       Int
-  productivityScore  Int?
-  stressScore        Int?
-  energyScore        Int?
-
-  // 活動データ
-  totalTasksCompleted Int      @default(0)
-  totalMinutesWorked  Int      @default(0)
-  totalBreakMinutes   Int      @default(0)
-
-  // メモ
-  notes         String?
-
-  // 外部キー
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([userId, date])
-  @@map("satisfaction_logs")
-}
-
-// ML学習データ
-model MLTrainingData {
-  id            String   @id @default(cuid())
-
-  // 入力特徴量
-  features      String   // タスク特性、時間、コンテキストなど (JSON文字列として保存)
-
-  // 出力ラベル
-  outcome       String   // 完了時間、満足度、成功可否など (JSON文字列として保存)
-
-  // メタデータ
-  modelVersion  String
-  dataVersion   String   @default("1.0")
-
-  createdAt     DateTime @default(now())
-
-  @@map("ml_training_data")
-}
-
-// Enum定義 (SQLiteの制約により文字列として保存)
-// TaskStatus: "PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED", "DEFERRED"
-// Priority: "LOW", "MEDIUM", "HIGH", "CRITICAL"
-// NotificationType: "TASK_REMINDER", "SCHEDULE_UPDATE", "DAILY_SUMMARY", "BREAK_SUGGESTION", "SYSTEM_ALERT"
-// IntegrationType: "GOOGLE_CALENDAR", "GOOGLE_TASKS", "GMAIL", "SLACK", "MICROSOFT_TODO", "OUTLOOK", "ASANA", "TRELLO"

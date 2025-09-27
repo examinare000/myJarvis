@@ -2,14 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import healthRouter from './routes/health';
+import prisma from './lib/prisma';
+import { initializeWebSocket } from './lib/websocket';
 
 // 環境変数を読み込み
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const prisma = new PrismaClient();
 
 // ミドルウェア
 app.use(helmet());
@@ -19,14 +20,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ヘルスチェックエンドポイント
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    service: 'myJarvis-backend'
-  });
-});
+app.use('/api/v1', healthRouter);
 
 // API情報エンドポイント
 app.get('/api/v1', (req, res) => {
@@ -74,26 +68,25 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   });
 });
 
-// サーバー起動
-const server = app.listen(PORT, () => {
-  console.log(`myJarvis Backend Server running on port ${PORT}`);
-  console.log(`Health check available at: http://localhost:${PORT}/health`);
-  console.log(`API info available at: http://localhost:${PORT}/api/v1`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM signal, shutting down gracefully...');
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+if (process.env.NODE_ENV !== 'test') {
+  const server = app.listen(PORT, () => {
+    console.log(`myJarvis Backend Server running on port ${PORT}`);
+    console.log(`Health check available at: http://localhost:${PORT}/api/v1/health`);
+    console.log(`API info available at: http://localhost:${PORT}/api/v1`);
   });
-});
 
-process.on('SIGINT', async () => {
-  console.log('Received SIGINT signal, shutting down gracefully...');
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
-  });
-});
+  initializeWebSocket(server);
+
+  const shutdown = async () => {
+    console.log('Shutting down gracefully...');
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+export default app;
