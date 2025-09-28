@@ -8,7 +8,6 @@ import {
   Container,
   List,
   ListItem,
-  ListItemText,
   Divider,
   CircularProgress,
   Chip
@@ -16,7 +15,7 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
-import { useSocket } from '../hooks/useSocket';
+import useSocket from '../hooks/useSocket';
 
 interface Message {
   id: string;
@@ -33,7 +32,10 @@ const Chat: React.FC = () => {
   const [aiResponse, setAiResponse] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { isConnected, sendMessage } = useSocket('http://localhost:3001');
+  const { isConnected, sendMessage } = useSocket({
+    url: 'http://localhost:3002',
+    listenEvent: 'chat:message'
+  });
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -42,9 +44,9 @@ const Chat: React.FC = () => {
 
   // Listen for AI responses
   useEffect(() => {
-    if (!window.io) return;
-
-    const socket = window.io('http://localhost:3001');
+    // Use socket.io-client directly
+    import('socket.io-client').then(({ io }) => {
+      const socket = io('http://localhost:3002');
 
     socket.on('ai:response', (data: any) => {
       if (data.choices?.[0]?.delta?.content) {
@@ -88,12 +90,13 @@ const Chat: React.FC = () => {
       setMessages(prev => [...prev, newMessage]);
     });
 
-    return () => {
-      socket.off('ai:response');
-      socket.off('ai:complete');
-      socket.off('ai:error');
-      socket.off('chat:message');
-    };
+      return () => {
+        socket.off('ai:response');
+        socket.off('ai:complete');
+        socket.off('ai:error');
+        socket.off('chat:message');
+      };
+    });
   }, [aiResponse]);
 
   // Update streaming message
