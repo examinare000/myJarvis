@@ -96,27 +96,23 @@ X-Client-Version: <APP_VERSION>
 {
   "email": "user@example.com",
   "password": "securePassword123!",
-  "device_info": {
-    "device_type": "ios|web",
-    "device_id": "unique_device_identifier",
-    "app_version": "1.0.0",
-    "os_version": "iOS 17.0"
-  }
+  "name": "田中太郎"
 }
 ```
 
 **レスポンス**:
 ```json
 {
-  "success": true,
-  "data": {
-    "user_id": "usr_123456789",
+  "user": {
+    "id": "usr_123456789",
     "email": "user@example.com",
-    "access_token": "eyJhbGciOiJSUzI1NiIs...",
-    "refresh_token": "rt_abcdef123456",
-    "expires_in": 3600,
-    "token_type": "Bearer"
-  }
+    "name": "田中太郎",
+    "role": "USER",
+    "createdAt": "2025-09-27T10:00:00.000Z"
+  },
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "8b33fe...",
+  "message": "User registered successfully"
 }
 ```
 
@@ -128,16 +124,24 @@ X-Client-Version: <APP_VERSION>
 ```json
 {
   "email": "user@example.com",
-  "password": "securePassword123!",
-  "device_info": {
-    "device_type": "ios|web",
-    "device_id": "unique_device_identifier",
-    "app_version": "1.0.0"
-  }
+  "password": "securePassword123!"
 }
 ```
 
-**レスポンス**: 登録と同様
+**レスポンス**:
+```json
+{
+  "user": {
+    "id": "usr_123456789",
+    "email": "user@example.com",
+    "name": "田中太郎",
+    "role": "USER"
+  },
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "8b33fe...",
+  "message": "Login successful"
+}
+```
 
 #### POST /auth/refresh
 
@@ -153,11 +157,9 @@ X-Client-Version: <APP_VERSION>
 **レスポンス**:
 ```json
 {
-  "success": true,
-  "data": {
-    "access_token": "eyJhbGciOiJSUzI1NiIs...",
-    "expires_in": 3600
-  }
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "9f8cd1...",
+  "message": "Tokens refreshed successfully"
 }
 ```
 
@@ -744,7 +746,82 @@ wss://api.myjarvis.app/v1/ws?token=<JWT_TOKEN>
 }
 ```
 
-## 9. エラーハンドリング
+## 9. 自然言語解析ログ API
+
+### 9.1 解析ログ登録
+
+#### POST /nlp/parse-logs
+
+自然言語入力から抽出した解析結果を永続化し、将来的な学習や監査に利用できるようにします。
+
+**リクエスト**:
+```json
+{
+  "userId": "usr_123456789",
+  "inputText": "明日の15時に会議を入れて",
+  "parsedResult": {
+    "title": "会議",
+    "startTime": "2025-09-28T15:00:00+09:00",
+    "endTime": "2025-09-28T16:00:00+09:00"
+  },
+  "confidenceScore": 0.92,
+  "userAccepted": true
+}
+```
+
+**レスポンス**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "npl_01HB9S6Z7S0R2X1Y2Z3W",
+    "userId": "usr_123456789",
+    "inputText": "明日の15時に会議を入れて",
+    "parsedResult": {
+      "title": "会議",
+      "startTime": "2025-09-28T15:00:00+09:00",
+      "endTime": "2025-09-28T16:00:00+09:00"
+    },
+    "confidenceScore": 0.92,
+    "userAccepted": true,
+    "createdAt": "2025-09-27T08:30:00Z"
+  }
+}
+```
+
+### 9.2 解析ログ取得
+
+#### GET /nlp/parse-logs
+
+ユーザー毎の解析ログを新しい順で取得します。`limit` を指定しない場合は 20 件、最大 100 件まで取得します。
+
+**クエリパラメータ**:
+- `userId` (必須) — ログを取得したいユーザーID
+- `limit` (任意) — 1〜100 の整数
+
+**レスポンス**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "npl_01HB9S6Z7S0R2X1Y2Z3W",
+      "userId": "usr_123456789",
+      "inputText": "明日の15時に会議を入れて",
+      "parsedResult": {
+        "title": "会議",
+        "startTime": "2025-09-28T15:00:00+09:00",
+        "endTime": "2025-09-28T16:00:00+09:00"
+      },
+      "confidenceScore": 0.92,
+      "userAccepted": true,
+      "createdAt": "2025-09-27T08:30:00Z"
+    }
+  ]
+}
+```
+
+## 10. エラーハンドリング
 
 ### 9.1 HTTPステータスコード
 
@@ -790,9 +867,9 @@ enum ApiErrorCode {
 }
 ```
 
-## 10. レート制限
+## 11. レート制限
 
-### 10.1 制限値
+### 11.1 制限値
 
 | エンドポイント | 制限 | ウィンドウ |
 |---------------|------|-----------|
@@ -802,7 +879,7 @@ enum ApiErrorCode {
 | /integrations/*/sync | 5 req/min | ユーザーごと |
 | LLM API | 10 req/hour | ユーザーごと |
 
-### 10.2 レート制限ヘッダー
+### 11.2 レート制限ヘッダー
 
 ```http
 X-RateLimit-Limit: 100
@@ -811,16 +888,16 @@ X-RateLimit-Reset: 1695639600
 Retry-After: 60
 ```
 
-## 11. バージョニング
+## 12. バージョニング
 
-### 11.1 APIバージョニング戦略
+### 12.1 APIバージョニング戦略
 
 - **URL パス**: `/v1/`, `/v2/` でバージョン指定
 - **後方互換性**: 最低2バージョンをサポート
 - **廃止予告**: 3ヶ月前の事前通知
 - **マイグレーション**: 段階的移行支援
 
-### 11.2 変更管理
+### 12.2 変更管理
 
 ```http
 API-Version: 1.0
@@ -828,41 +905,41 @@ API-Deprecated: false
 API-Sunset-Date: 2026-09-25
 ```
 
-## 12. セキュリティ
+## 13. セキュリティ
 
-### 12.1 認証・認可
+### 13.1 認証・認可
 
 - **JWT**: RS256署名、1時間有効期限
 - **リフレッシュトークン**: 30日有効期限、1回限り使用
 - **MFA**: TOTP (RFC 6238) 対応
 - **デバイス認証**: 証明書ベース認証
 
-### 12.2 データ保護
+### 13.2 データ保護
 
 - **HTTPS強制**: TLS 1.3, HSTS有効
 - **CORS**: 厳格なオリジン制限
 - **CSP**: Content Security Policy適用
 - **入力サニタイズ**: 全入力データの検証・エスケープ
 
-## 13. パフォーマンス
+## 14. パフォーマンス
 
-### 13.1 レスポンス時間目標
+### 14.1 レスポンス時間目標
 
 - **認証API**: < 200ms
 - **CRUD操作**: < 300ms
 - **LLMタスク分解**: < 5s
 - **WebSocket**: < 100ms
 
-### 13.2 最適化戦略
+### 14.2 最適化戦略
 
 - **Redis キャッシング**: 頻繁アクセスデータ
 - **データベース最適化**: インデックス・クエリ最適化
 - **圧縮**: gzip/brotli レスポンス圧縮
 - **CDN**: 静的リソース配信
 
-## 14. 監視・ログ
+## 15. 監視・ログ
 
-### 14.1 メトリクス
+### 15.1 メトリクス
 
 ```json
 {
@@ -875,7 +952,7 @@ API-Sunset-Date: 2026-09-25
 }
 ```
 
-### 14.2 ヘルスチェック
+### 15.2 ヘルスチェック
 
 #### GET /health
 
@@ -893,22 +970,22 @@ API-Sunset-Date: 2026-09-25
 }
 ```
 
-## 15. 実装考慮事項
+## 16. 実装考慮事項
 
-### 15.1 開発環境
+### 16.1 開発環境
 
 - **Swagger/OpenAPI**: API仕様書自動生成
 - **Postman Collection**: テスト用API コレクション
 - **モックサーバー**: フロントエンド開発支援
 
-### 15.2 テスト戦略
+### 16.2 テスト戦略
 
 - **単体テスト**: 各エンドポイントの機能テスト
 - **統合テスト**: 外部サービス連携テスト
 - **負荷テスト**: パフォーマンス・スケーラビリティテスト
 - **セキュリティテスト**: 脆弱性診断
 
-## 16. 関連文書
+## 17. 関連文書
 
 - [01-システムアーキテクチャ設計](/docs/design/01-システムアーキテクチャ設計.md)
 - [ADR-002: 外部サービス統合戦略](/docs/adr/ADR-002-外部サービス統合戦略.md)

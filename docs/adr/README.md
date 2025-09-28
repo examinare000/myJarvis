@@ -1,110 +1,115 @@
 # Architecture Decision Records (ADR)
 
-このディレクトリには、myJarvisプロジェクトの重要なアーキテクチャ決定が記録されています。
+このディレクトリには、myJarvisプロジェクトで行われた重要な技術的決定の記録が含まれています。
 
 ## ADR一覧
 
-### [ADR-001: マルチプラットフォーム戦略](./ADR-001-マルチプラットフォーム戦略.md)
-**決定**: Kotlin Multiplatform + ネイティブUI (SwiftUI/React)
-**理由**: ビジネスロジックの共通化とネイティブUX体験の両立
+| ID | タイトル | ステータス | 決定日 |
+|----|----------|------------|--------|
+| [001](./001-use-postgresql-instead-of-sqlite.md) | PostgreSQLをSQLiteの代わりに使用する | 承認済み | 2025-09-27 |
+| [002](./002-zustand-for-state-management.md) | 状態管理にZustandを採用する | 承認済み | 2025-09-28 |
+| [003](./003-react-query-for-server-state.md) | サーバー状態管理にReact Queryを採用する | 承認済み | 2025-09-28 |
+| [004](./004-tdd-approach-for-critical-features.md) | Critical機能にTDDアプローチを採用する | 承認済み | 2025-09-28 |
+| [005](./005-frontend-port-8080-requirement.md) | Frontend を Port 8080 で動作させる | 承認済み | 2025-09-28 |
+| [006](./006-agentic-coding-role-separation.md) | Agentic Codingにおける役割分担戦略 | 承認済み | 2025-09-28 |
 
-### [ADR-002: 外部サービス統合戦略](./ADR-002-外部サービス統合戦略.md)
-**決定**: BFF (Backend for Frontend) パターン
-**理由**: 認証情報の安全管理と外部API変更への耐性確保
+## ADRとは
 
-### [ADR-003: AI/MLパイプライン設計](./ADR-003-AI-MLパイプライン設計.md)
-**決定**: ハイブリッド実行（LLM: クラウド, ML: ローカル）
-**理由**: 高度なタスク分解能力とプライバシー保護の両立
+Architecture Decision Record (ADR) は、ソフトウェア開発における重要な技術的決定を記録するドキュメントです。
 
-### [ADR-004: 通知システム設計](./ADR-004-通知システム設計.md)
-**決定**: ハイブリッド通知（サーバートリガー + クライアント最適化）
-**理由**: 外部イベントへの即応性とパーソナライズの両立
+### 目的
+- 技術的決定の背景と根拠を明確にする
+- 将来の開発者が決定の理由を理解できるようにする
+- 決定の見直しや変更時の参考資料とする
 
-### [ADR-005: データストレージ・プライバシー戦略](./ADR-005-データストレージ・プライバシー戦略.md)
-**決定**: ハイブリッドストレージ（機密度別データ分離）
-**理由**: プライバシー保護とマルチデバイス同期の両立
+### 構成
+各ADRは以下の構成で記述されています：
 
-### [ADR-006: リアルタイム同期戦略](./ADR-006-リアルタイム同期戦略.md)
-**決定**: WebSockets ベースの双方向通信
-**理由**: 真のリアルタイム体験と効率的な通信の実現
+1. **ステータス**: 提案中、承認済み、非推奨など
+2. **コンテキスト**: 決定が必要になった背景
+3. **決定**: 採用した解決策
+4. **根拠**: なぜその決定を行ったか
+5. **結果**: 決定による影響（メリット・デメリット）
 
-## アーキテクチャ概要図
+## 分類
+
+### インフラストラクチャ
+- ADR-001: PostgreSQL採用
+
+### フロントエンド
+- ADR-002: Zustand採用
+- ADR-003: React Query採用
+- ADR-005: Port 8080要件
+
+### 開発プロセス
+- ADR-004: TDDアプローチ
+- ADR-006: Agentic Coding戦略
+
+## 現在のアーキテクチャ概要
 
 ```
 ┌─────────────────────┐    ┌─────────────────────┐
-│   iOS App (Swift)   │    │ Web App (React)     │
+│   Frontend          │    │   Backend           │
+│   (React/Vite)      │    │   (Express/Node.js) │
+│   Port: 8080        │    │   Port: 3002        │
 │                     │    │                     │
 │ ┌─────────────────┐ │    │ ┌─────────────────┐ │
-│ │   SwiftUI UI    │ │    │ │   React UI      │ │
+│ │ React Components│ │    │ │ REST APIs       │ │
+│ │ - Dashboard     │ │    │ │ - /tasks        │ │
+│ │ - TasksPanel    │ │    │ │ - /lifelog      │ │
+│ │ - LifelogInput  │ │    │ │ - /calendar     │ │
 │ └─────────────────┘ │    │ └─────────────────┘ │
 │ ┌─────────────────┐ │    │ ┌─────────────────┐ │
-│ │ KMP Shared Core │ │    │ │ KMP Shared Core │ │
-│ │  - Business     │ │    │ │  - Business     │ │
-│ │    Logic        │ │    │ │    Logic        │ │
-│ │  - Local ML     │ │    │ │  - Local ML     │ │
-│ │  - WebSocket    │ │    │ │  - WebSocket    │ │
+│ │ State Management│ │    │ │ WebSocket       │ │
+│ │ - Zustand       │ │    │ │ - Socket.io     │ │
+│ │ - React Query   │ │    │ │ - Real-time     │ │
 │ └─────────────────┘ │    │ └─────────────────┘ │
 └─────────────────────┘    └─────────────────────┘
            │                           │
-           └───────────┬───────────────┘
-                       │ WebSocket/HTTPS
-                       ▼
-         ┌─────────────────────────────┐
-         │    Node.js BFF Server       │
-         │                             │
-         │ ┌─────────────────────────┐ │
-         │ │  External API Gateway   │ │
-         │ │  - Google Calendar      │ │
-         │ │  - Gmail                │ │
-         │ │  - Slack                │ │
-         │ └─────────────────────────┘ │
-         │ ┌─────────────────────────┐ │
-         │ │  LLM Processing         │ │
-         │ │  - Gemini API           │ │
-         │ │  - Task Decomposition   │ │
-         │ └─────────────────────────┘ │
-         │ ┌─────────────────────────┐ │
-         │ │  Real-time Sync         │ │
-         │ │  - WebSocket Manager    │ │
-         │ │  - Redis Pub/Sub        │ │
-         │ └─────────────────────────┘ │
-         └─────────────────────────────┘
+           └───────API Proxy───────────┘
                        │
                        ▼
          ┌─────────────────────────────┐
-         │     Data Storage            │
+         │     Database                │
+         │     PostgreSQL 16           │
+         │     Port: 5432              │
          │                             │
          │ ┌─────────────────────────┐ │
-         │ │  Encrypted Database     │ │
-         │ │  (Non-sensitive data)   │ │
-         │ └─────────────────────────┘ │
-         │                             │
-         │ ┌─────────────────────────┐ │
-         │ │  Local Device Storage   │ │
-         │ │  (Sensitive data only)  │ │
+         │ │ Tables                  │ │
+         │ │ - User                  │ │
+         │ │ - Task                  │ │
+         │ │ - LifelogEntry          │ │
+         │ │ - CalendarEvent         │ │
          │ └─────────────────────────┘ │
          └─────────────────────────────┘
 ```
 
 ## 重要な設計原則
 
-### 1. プライバシーファースト
-機微な個人情報（バイタル、満足度等）はデバイス内にのみ保存し、クラウドには送信しません。
+### 1. TDDによる品質担保
+Critical機能は全てテストファーストで実装し、回帰バグを防止します。
 
-### 2. ハイブリッドアプローチ
-各コンポーネント（UI、AI/ML、同期、ストレージ）で最適な技術選択を行い、トレードオフを適切にバランスします。
+### 2. 段階的実装アプローチ
+最小限の機能から開始し、継続的に機能を追加する戦略を採用しています。
 
-### 3. スケーラブルアーキテクチャ
-初期実装はシンプルに保ちつつ、将来の拡張に備えた設計を採用しています。
+### 3. Agent協働開発
+Claude、Codex、Geminiの特性を活かした役割分担で効率的な開発を実現しています。
 
 ### 4. セキュリティバイデザイン
 全ての決定において、セキュリティとプライバシーを最優先事項として考慮しています。
 
-## 次のステップ
+## 今後の予定
 
-1. **プロトタイプ開発**: ADR-001のKotlin Multiplatform環境構築
-2. **セキュリティ監査**: ADR-005のデータ分類とプライバシー対策の詳細設計
-3. **パフォーマンステスト**: ADR-006のWebSocket実装の負荷テスト
-4. **ユーザビリティテスト**: ADR-004の通知システムのUXテスト
+以下のトピックについてもADRを作成予定：
 
-各ADRの実装状況と変更履歴は、個別のADRファイル内で管理されます。
+- [ ] 認証方式（JWT vs Session）
+- [ ] AI統合戦略（Ollama vs OpenAI）
+- [ ] カレンダーライブラリ選定
+- [ ] デプロイ戦略（Docker vs Serverless）
+- [ ] モニタリング・ログ戦略
+
+## 参考資料
+
+- [ADR GitHub Repository](https://adr.github.io/)
+- [Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
+- [Architecture Decision Records in Action](https://www.thoughtworks.com/radar/techniques/lightweight-architecture-decision-records)
