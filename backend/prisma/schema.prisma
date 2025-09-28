@@ -19,16 +19,27 @@ enum TaskPriority {
   HIGH
 }
 
-model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  name         String
-  passwordHash String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+enum UserRole {
+  USER
+  ADMIN
+}
 
-  tasks         Task[]
-  conversations Conversation[]
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String?
+  passwordHash    String?
+  role            UserRole        @default(USER)
+  emailVerified   DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tasks           Task[]
+  conversations   Conversation[]
+  lifelogEntries  LifelogEntry[]
+  calendarEvents  CalendarEvent[]
+  refreshTokens   RefreshToken[]
 }
 
 model Task {
@@ -57,4 +68,59 @@ model Conversation {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+model LifelogEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  content      String   @db.VarChar(280)
+  tags         String[]
+  mood         String?
+  images       String[]
+  locationLat  Float?
+  locationLng  Float?
+  locationName String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("lifelog_entries")
+}
+
+model CalendarEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  title          String   @db.VarChar(255)
+  description    String?
+  startTime      DateTime
+  endTime        DateTime
+  category       String?  @default("general") @db.VarChar(50)
+  color          String?  @default("#1976D2") @db.VarChar(7)
+  location       String?  @db.VarChar(255)
+  isAllDay       Boolean  @default(false)
+  recurrenceRule String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startTime, endTime])
+  @@index([category])
+  @@map("calendar_events")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
 }
