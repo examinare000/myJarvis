@@ -36,7 +36,7 @@ export const authenticateToken = async (
       role: payload.role,
     };
 
-    next();
+    return next();
   } catch (error) {
     return res.status(403).json({
       error: 'Invalid or expired token',
@@ -67,7 +67,7 @@ export const requireAdmin = (
     });
   }
 
-  next();
+  return next();
 };
 
 /**
@@ -91,9 +91,9 @@ export const optionalAuth = async (
       };
     }
 
-    next();
+    return next();
   } catch (error) {
     // 認証エラーでも通す（トークンは無視）
-    next();
+    return next();
   }
 };
