@@ -124,7 +124,14 @@ export async function verifyRefreshToken(refreshToken: string): Promise<TokenPai
     });
 
     // 新しいトークンペアを生成
-    const newTokenPair = await generateTokenPair(storedToken.user);
+    const tokenPayload: UserTokenData = {
+      id: storedToken.user.id,
+      email: storedToken.user.email,
+      role: storedToken.user.role ?? 'USER',
+      name: storedToken.user.name ?? undefined,
+    };
+
+    const newTokenPair = await generateTokenPair(tokenPayload);
 
     return newTokenPair;
   } catch (error) {
