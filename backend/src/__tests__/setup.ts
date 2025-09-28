@@ -36,6 +36,14 @@ jest.mock('@prisma/client', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    nlParseLog: {
+      create: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
   })),
 }));
 
