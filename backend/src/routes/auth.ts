@@ -55,7 +55,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // ユーザー作成
-    const user = await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         email,
         name,
@@ -72,16 +72,24 @@ router.post('/register', async (req, res) => {
     });
 
     // トークン生成
-    const tokens = await generateTokenPair(user);
+    const tokenPayload = {
+      id: createdUser.id,
+      email: createdUser.email,
+      name: createdUser.name ?? undefined,
+      role: createdUser.role,
+    };
 
-    res.status(201).json({
-      user,
-      tokens,
+    const tokens = await generateTokenPair(tokenPayload);
+
+    return res.status(201).json({
+      user: createdUser,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       message: 'User registered successfully',
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Registration failed',
       code: 'REGISTRATION_FAILED',
     });
@@ -143,23 +151,24 @@ router.post('/login', async (req, res) => {
     const tokens = await generateTokenPair({
       id: user.id,
       email: user.email,
-      name: user.name || undefined,
-      role: user.role,
+      name: user.name ?? undefined,
+      role: user.role ?? 'USER',
     });
 
-    res.json({
+    return res.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role ?? 'USER',
       },
-      tokens,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       message: 'Login successful',
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Login failed',
       code: 'LOGIN_FAILED',
     });
@@ -184,13 +193,14 @@ router.post('/refresh', async (req, res) => {
 
     const newTokens = await verifyRefreshToken(refreshToken);
 
-    res.json({
-      tokens: newTokens,
+    return res.json({
+      accessToken: newTokens.accessToken,
+      refreshToken: newTokens.refreshToken,
       message: 'Tokens refreshed successfully',
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    res.status(401).json({
+    return res.status(401).json({
       error: 'Invalid refresh token',
       code: 'INVALID_REFRESH_TOKEN',
     });
@@ -208,12 +218,12 @@ router.post('/logout', authenticateToken, async (req: AuthRequest, res) => {
       await revokeRefreshToken(refreshToken);
     }
 
-    res.json({
+    return res.json({
       message: 'Logged out successfully',
     });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Logout failed',
       code: 'LOGOUT_FAILED',
     });
@@ -245,10 +255,10 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
       });
     }
 
-    res.json({ user });
+    return res.json({ user });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get user info',
       code: 'GET_USER_FAILED',
     });
