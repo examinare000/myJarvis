@@ -5,6 +5,10 @@ import dotenv from 'dotenv';
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
 import aiRouter from './routes/ai';
+import tasksRouter from './routes/tasks';
+import lifelogRouter from './routes/lifelog';
+import calendarRouter from './routes/calendar';
+import nlParseLogRouter from './routes/nlParseLog';
 import prisma from './lib/prisma';
 import { initializeWebSocket } from './lib/websocket';
 
@@ -25,6 +29,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/v1', healthRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/ai', aiRouter);
+app.use('/api/v1/tasks', tasksRouter);
+app.use('/api/v1/lifelog', lifelogRouter);
+app.use('/api/v1/calendar', calendarRouter);
+app.use('/api/v1/nlp/parse-logs', nlParseLogRouter);
 
 // API情報エンドポイント
 app.get('/api/v1', (req, res) => {
