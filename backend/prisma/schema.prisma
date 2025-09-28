@@ -39,6 +39,7 @@ model User {
   conversations   Conversation[]
   lifelogEntries  LifelogEntry[]
   calendarEvents  CalendarEvent[]
+  nlParseLogs     NlParseLog[]
   refreshTokens   RefreshToken[]
 }
 
@@ -111,6 +112,22 @@ model CalendarEvent {
   @@index([startTime, endTime])
   @@index([category])
   @@map("calendar_events")
+}
+
+model NlParseLog {
+  id              String   @id @default(cuid())
+  userId          String
+  inputText       String   @db.Text
+  parsedResult    Json?
+  confidenceScore Float?
+  userAccepted    Boolean?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("nl_parse_logs")
 }
 
 model RefreshToken {
