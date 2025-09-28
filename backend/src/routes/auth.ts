@@ -1,141 +1,257 @@
-import { Router } from 'express';
-import bcrypt from 'bcrypt';
-import jwt, { SignOptions } from 'jsonwebtoken';
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+import { generateTokenPair, verifyRefreshToken, revokeRefreshToken } from '../services/jwtService';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 
-type AuthenticatedUser = {
-  id: string;
-  email: string;
-  name: string | null;
-  passwordHash: string;
-  [key: string]: unknown;
-};
+const router = express.Router();
 
-const router = Router();
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// バリデーションスキーマ
+const registerSchema = z.object({
+  email: z.string().email('有効なメールアドレスを入力してください'),
+  password: z.string().min(8, 'パスワードは8文字以上である必要があります'),
+  name: z.string().min(1, '名前を入力してください').optional(),
+});
 
-const sanitizeUser = (user: AuthenticatedUser) => {
-  const { passwordHash, ...safeUser } = user;
-  return safeUser;
-};
+const loginSchema = z.object({
+  email: z.string().email('有効なメールアドレスを入力してください'),
+  password: z.string().min(1, 'パスワードを入力してください'),
+});
 
-const requireEnv = (key: string) => {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`${key} is not configured`);
-  }
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1, 'リフレッシュトークンが必要です'),
+});
 
-  return value;
-};
-
-const generateTokens = (user: AuthenticatedUser) => {
-  const accessSecret = requireEnv('JWT_SECRET');
-  const refreshSecret = requireEnv('JWT_REFRESH_SECRET');
-  const accessExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN ?? '15m';
-  const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
-
-  const payload = { sub: user.id, email: user.email, name: user.name };
-  const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn } as SignOptions);
-  const refreshToken = jwt.sign({ ...payload, type: 'refresh' }, refreshSecret, {
-    expiresIn: refreshExpiresIn,
-  } as SignOptions);
-
-  return { accessToken, refreshToken };
-};
-
-const isValidEmail = (email: unknown): email is string => typeof email === 'string' && EMAIL_REGEX.test(email);
-
-const isStrongPassword = (password: unknown): password is string =>
-  typeof password === 'string' &&
-  password.length >= 8 &&
-  /[a-z]/.test(password) &&
-  /[A-Z]/.test(password) &&
-  /\d/.test(password);
-
+/**
+ * ユーザー登録
+ */
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body as {
-      email?: unknown;
-      password?: unknown;
-      name?: unknown;
-    };
+    const validation = registerSchema.safeParse(req.body);
 
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'email is invalid' });
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: validation.error.errors,
+      });
     }
 
-    if (!isStrongPassword(password)) {
-      return res
-        .status(400)
-        .json({ error: 'password must be at least 8 characters long and include upper and lower case letters and a number' });
-    }
+    const { email, password, name } = validation.data;
 
-    if (typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ error: 'name is required' });
-    }
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    // 既存ユーザーチェック
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
 
     if (existingUser) {
-      return res.status(409).json({ error: 'User with this email already exists' });
+      return res.status(409).json({
+        error: 'User already exists',
+        code: 'USER_EXISTS',
+      });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // パスワードハッシュ化
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    const createdUser = (await prisma.user.create({
+    // ユーザー作成
+    const user = await prisma.user.create({
       data: {
         email,
         name,
         passwordHash,
+        role: 'USER',
       },
-    })) as AuthenticatedUser;
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
 
-    const { accessToken, refreshToken } = generateTokens(createdUser);
+    // トークン生成
+    const tokens = await generateTokenPair(user);
 
-    return res.status(201).json({
-      user: sanitizeUser(createdUser),
-      accessToken,
-      refreshToken,
+    res.status(201).json({
+      user,
+      tokens,
+      message: 'User registered successfully',
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return res.status(500).json({ error: message });
+    console.error('Registration error:', error);
+    res.status(500).json({
+      error: 'Registration failed',
+      code: 'REGISTRATION_FAILED',
+    });
   }
 });
 
+/**
+ * ユーザーログイン
+ */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body as {
-      email?: unknown;
-      password?: unknown;
-    };
+    const validation = loginSchema.safeParse(req.body);
 
-    if (!isValidEmail(email) || typeof password !== 'string') {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: validation.error.errors,
+      });
     }
 
-    const user = (await prisma.user.findUnique({ where: { email } })) as AuthenticatedUser | null;
+    const { email, password } = validation.data;
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // ユーザー検索
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({
+        error: 'Invalid credentials',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    // パスワード検証
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (!isValidPassword) {
+      return res.status(401).json({
+        error: 'Invalid credentials',
+        code: 'INVALID_CREDENTIALS',
+      });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    // 最終ログイン時刻更新
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
-    return res.status(200).json({
-      user: sanitizeUser(user),
-      accessToken,
-      refreshToken,
+    // トークン生成
+    const tokens = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+      name: user.name || undefined,
+      role: user.role,
+    });
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      tokens,
+      message: 'Login successful',
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return res.status(500).json({ error: message });
+    console.error('Login error:', error);
+    res.status(500).json({
+      error: 'Login failed',
+      code: 'LOGIN_FAILED',
+    });
+  }
+});
+
+/**
+ * トークンリフレッシュ
+ */
+router.post('/refresh', async (req, res) => {
+  try {
+    const validation = refreshSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: validation.error.errors,
+      });
+    }
+
+    const { refreshToken } = validation.data;
+
+    const newTokens = await verifyRefreshToken(refreshToken);
+
+    res.json({
+      tokens: newTokens,
+      message: 'Tokens refreshed successfully',
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({
+      error: 'Invalid refresh token',
+      code: 'INVALID_REFRESH_TOKEN',
+    });
+  }
+});
+
+/**
+ * ログアウト
+ */
+router.post('/logout', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
+
+    res.json({
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      error: 'Logout failed',
+      code: 'LOGOUT_FAILED',
+    });
+  }
+});
+
+/**
+ * 現在のユーザー情報取得
+ */
+router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
+      error: 'Failed to get user info',
+      code: 'GET_USER_FAILED',
+    });
   }
 });
 
