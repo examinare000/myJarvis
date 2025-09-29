@@ -1,4 +1,5 @@
-import React, { useState, FormEvent } from 'react'
+import React, { useState, FormEvent, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -9,17 +10,59 @@ import {
   Stack,
   TextField,
   Typography,
+  Alert,
+  CircularProgress,
+  Link,
+  Divider,
 } from '@mui/material'
+import { useAuthStore } from '../store/authStore'
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
+  const [isRegister, setIsRegister] = useState(false)
+  const [name, setName] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const { login, register, isLoading, error, isAuthenticated, clearError } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const from = (location.state as any)?.from?.pathname || '/dashboard'
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true })
+    }
+  }, [isAuthenticated, navigate, from])
+
+  useEffect(() => {
+    clearError()
+  }, [isRegister, clearError])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    // Replace with real authentication logic when backend is ready.
-    console.log('Login attempted', { email, password, rememberMe })
+    clearError()
+
+    try {
+      if (isRegister) {
+        if (password !== confirmPassword) {
+          return
+        }
+        await register(email, password, name || undefined)
+      } else {
+        await login(email, password)
+      }
+    } catch (error) {
+      console.error('Authentication error:', error)
+    }
+  }
+
+  const validateForm = () => {
+    if (!email || !password) return false
+    if (isRegister && password !== confirmPassword) return false
+    return true
   }
 
   return (
@@ -28,12 +71,30 @@ const Login: React.FC = () => {
         <Stack spacing={3} component="form" onSubmit={handleSubmit}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Sign in
+              {isRegister ? 'Create Account' : 'Sign in'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Access your myJarvis workspace with your email and password.
+              {isRegister
+                ? 'Create your myJarvis account to get started.'
+                : 'Access your myJarvis workspace with your email and password.'}
             </Typography>
           </Box>
+
+          {error && (
+            <Alert severity="error" onClose={clearError}>
+              {error}
+            </Alert>
+          )}
+
+          {isRegister && (
+            <TextField
+              label="Name (Optional)"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              fullWidth
+              autoComplete="name"
+            />
+          )}
 
           <TextField
             label="Email"
@@ -42,7 +103,8 @@ const Login: React.FC = () => {
             onChange={(event) => setEmail(event.target.value)}
             required
             fullWidth
-            autoComplete="email"
+            autoComplete={isRegister ? 'new-password' : 'email'}
+            error={!email && error !== null}
           />
 
           <TextField
@@ -52,22 +114,76 @@ const Login: React.FC = () => {
             onChange={(event) => setPassword(event.target.value)}
             required
             fullWidth
-            autoComplete="current-password"
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+            error={!password && error !== null}
+            helperText={isRegister ? '8文字以上で入力してください' : undefined}
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-            }
-            label="Remember me"
-          />
+          {isRegister && (
+            <TextField
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              required
+              fullWidth
+              autoComplete="new-password"
+              error={password !== confirmPassword && confirmPassword !== ''}
+              helperText={
+                password !== confirmPassword && confirmPassword !== ''
+                  ? 'パスワードが一致しません'
+                  : undefined
+              }
+            />
+          )}
 
-          <Button type="submit" variant="contained" size="large">
-            Login
+          {!isRegister && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+              }
+              label="Remember me"
+            />
+          )}
+
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={!validateForm() || isLoading}
+            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : undefined}
+          >
+            {isLoading
+              ? (isRegister ? 'Creating Account...' : 'Signing in...')
+              : (isRegister ? 'Create Account' : 'Sign in')}
           </Button>
+
+          <Divider />
+
+          <Box textAlign="center">
+            <Typography variant="body2" color="text.secondary">
+              {isRegister ? 'Already have an account?' : "Don't have an account?"}
+            </Typography>
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              onClick={() => {
+                setIsRegister(!isRegister)
+                setEmail('')
+                setPassword('')
+                setName('')
+                setConfirmPassword('')
+                clearError()
+              }}
+              sx={{ mt: 1 }}
+            >
+              {isRegister ? 'Sign in here' : 'Create account here'}
+            </Link>
+          </Box>
         </Stack>
       </Paper>
     </Container>
