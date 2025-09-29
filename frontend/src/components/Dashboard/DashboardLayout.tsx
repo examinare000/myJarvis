@@ -2,6 +2,7 @@ import React from 'react';
 import { Grid, Container, Box } from '@mui/material';
 import TodayTasksPanel from './TodayTasksPanel';
 import LifelogInput from './LifelogInput';
+import AIChat from '../AIChat';
 
 const DashboardLayout: React.FC = () => {
   return (
@@ -17,9 +18,16 @@ const DashboardLayout: React.FC = () => {
           <LifelogInput />
         </Grid>
 
+        {/* AI Chat Panel */}
+        <Grid item xs={12} lg={6}>
+          <Box sx={{ height: 600 }}>
+            <AIChat />
+          </Box>
+        </Grid>
+
         {/* Additional panels can be added here */}
-        <Grid item xs={12}>
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+        <Grid item xs={12} lg={6}>
+          <Box sx={{ height: 600, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
             {/* Calendar view and other features will be added here */}
           </Box>
         </Grid>
