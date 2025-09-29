@@ -1,29 +1,9 @@
 import { create } from 'zustand';
+import type { Task as ApiTask, TodayTaskStats } from '@/types/api';
 
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
-  dueDate?: string;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-}
+export type Task = ApiTask;
 
-export interface TaskStats {
-  total: number;
-  todo: number;
-  inProgress: number;
-  done: number;
-  completionRate: number;
-  byPriority: {
-    high: number;
-    medium: number;
-    low: number;
-  };
-}
+export type TaskStats = TodayTaskStats;
 
 interface TaskState {
   todayTasks: Task[];
@@ -40,7 +20,7 @@ interface TaskState {
   setError: (error: string | null) => void;
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
+export const useTaskStore = create<TaskState>((set) => ({
   todayTasks: [],
   taskStats: null,
   isLoading: false,

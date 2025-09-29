@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 // テスト後のクリーンアップ
 afterEach(() => {
@@ -8,16 +8,16 @@ afterEach(() => {
 });
 
 // グローバルなfetchのモック
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn<typeof fetch>();
 
 // LocalStorageのモック
 const localStorageMock: Storage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-  key: vi.fn(),
+  getItem: vi.fn<Storage['getItem']>(),
+  setItem: vi.fn<Storage['setItem']>(),
+  removeItem: vi.fn<Storage['removeItem']>(),
+  clear: vi.fn<Storage['clear']>(),
+  key: vi.fn<Storage['key']>(),
   length: 0,
 };
 
-global.localStorage = localStorageMock;
+globalThis.localStorage = localStorageMock;

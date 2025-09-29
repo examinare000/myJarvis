@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import { DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
 import { Box } from '@mui/material';
 import CalendarView from './CalendarView';
 import NaturalLanguageInput from './NaturalLanguageInput';
@@ -14,7 +14,7 @@ const CalendarContainer: React.FC = () => {
   // カレンダーイベント取得
   const { data: events, isLoading, error } = useQuery<CalendarEvent[], Error>({
     queryKey: ['calendarEvents'],
-    queryFn: apiClient.getCalendarEvents,
+    queryFn: () => apiClient.getCalendarEvents(),
   });
 
   React.useEffect(() => {
@@ -24,14 +24,10 @@ const CalendarContainer: React.FC = () => {
   }, [events, setEvents]);
 
   // イベント作成ミューテーション
-  const createEventMutation = useMutation<CalendarEvent, Error, {
-    title: string;
-    description?: string;
-    startTime: string;
-    endTime: string;
-    color?: string;
-  }>({
-    mutationFn: async (data) => apiClient.createCalendarEvent(data) as Promise<CalendarEvent>,
+  const createEventMutation = useMutation<CalendarEvent, Error, Pick<CalendarEvent,
+    'title' | 'description' | 'startTime' | 'endTime' | 'color'
+  >>({
+    mutationFn: (data) => apiClient.createCalendarEvent(data),
     onSuccess: (newEvent) => {
       addEvent(newEvent);
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
@@ -41,10 +37,10 @@ const CalendarContainer: React.FC = () => {
   // イベント更新ミューテーション
   const updateEventMutation = useMutation<CalendarEvent, Error, {
     eventId: string;
-    updates: Partial<CalendarEvent>;
+    updates: Partial<Pick<CalendarEvent, 'title' | 'description' | 'startTime' | 'endTime' | 'color'>>;
   }>({
-    mutationFn: async ({ eventId, updates }) =>
-      apiClient.updateCalendarEvent(eventId, updates) as Promise<CalendarEvent>,
+    mutationFn: ({ eventId, updates }) =>
+      apiClient.updateCalendarEvent(eventId, updates),
     onSuccess: (updatedEvent) => {
       updateEvent(updatedEvent.id, updatedEvent);
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
@@ -53,7 +49,7 @@ const CalendarContainer: React.FC = () => {
 
   // イベント削除ミューテーション
   const deleteEventMutation = useMutation<void, Error, string>({
-    mutationFn: apiClient.deleteCalendarEvent,
+    mutationFn: (eventId) => apiClient.deleteCalendarEvent(eventId),
     onSuccess: (_, eventId) => {
       removeEvent(eventId);
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] });
@@ -98,7 +94,7 @@ const CalendarContainer: React.FC = () => {
   };
 
   // イベントドロップ時（時間変更）
-  const handleEventDrop = (info: any) => {
+  const handleEventDrop = (info: EventDropArg) => {
     const eventId = info.event.id;
     updateEventMutation.mutate({
       eventId,
@@ -110,13 +106,9 @@ const CalendarContainer: React.FC = () => {
   };
 
   // 自然言語入力からのイベント作成
-  const handleNaturalLanguageCreate = (eventData: {
-    title: string;
-    description?: string;
-    startTime: string;
-    endTime: string;
-    color?: string;
-  }) => {
+  const handleNaturalLanguageCreate = (
+    eventData: Pick<CalendarEvent, 'title' | 'description' | 'startTime' | 'endTime' | 'color'>
+  ) => {
     createEventMutation.mutate(eventData);
   };
 

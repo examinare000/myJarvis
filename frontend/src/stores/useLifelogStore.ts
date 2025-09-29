@@ -1,18 +1,7 @@
 import { create } from 'zustand';
+import type { LifelogEntry as ApiLifelogEntry } from '@/types/api';
 
-export interface LifelogEntry {
-  id: string;
-  userId: string;
-  content: string;
-  tags: string[];
-  mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
-  images: string[];
-  locationLat?: number;
-  locationLng?: number;
-  locationName?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type LifelogEntry = ApiLifelogEntry;
 
 interface LifelogState {
   entries: LifelogEntry[];
@@ -28,7 +17,7 @@ interface LifelogState {
   setError: (error: string | null) => void;
 }
 
-export const useLifelogStore = create<LifelogState>((set, get) => ({
+export const useLifelogStore = create<LifelogState>((set) => ({
   entries: [],
   isLoading: false,
   error: null,

@@ -1,16 +1,7 @@
 import { create } from 'zustand';
+import type { CalendarEvent as ApiCalendarEvent } from '@/types/api';
 
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  description?: string;
-  startTime: string;
-  endTime: string;
-  color?: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type CalendarEvent = ApiCalendarEvent;
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -28,7 +19,7 @@ interface CalendarState {
   setError: (error: string | null) => void;
 }
 
-export const useCalendarStore = create<CalendarState>((set, get) => ({
+export const useCalendarStore = create<CalendarState>((set) => ({
   events: [],
   selectedEvent: null,
   isLoading: false,

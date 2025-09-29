@@ -1,3 +1,4 @@
+import { describe, test, expect } from 'vitest';
 import { parseNaturalLanguageEvent, NATURAL_LANGUAGE_EXAMPLES } from '../dateParser';
 
 describe('日本語自然言語日時解析', () => {
@@ -165,7 +166,7 @@ describe('日本語自然言語日時解析', () => {
 
   describe('例文の全件テスト', () => {
     test('全ての例文が正常に解析される', () => {
-      NATURAL_LANGUAGE_EXAMPLES.forEach((example, index) => {
+      NATURAL_LANGUAGE_EXAMPLES.forEach((example) => {
         const result = parseNaturalLanguageEvent(example, referenceDate);
 
         expect(result.success).toBe(true);

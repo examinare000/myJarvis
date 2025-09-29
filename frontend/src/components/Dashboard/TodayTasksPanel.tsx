@@ -35,7 +35,7 @@ const TodayTasksPanel: React.FC = () => {
     error: tasksError,
   } = useQuery<Task[], Error>({
     queryKey: ['todayTasks'],
-    queryFn: apiClient.getTodayTasks,
+    queryFn: () => apiClient.getTodayTasks(),
   });
 
   React.useEffect(() => {
@@ -51,7 +51,7 @@ const TodayTasksPanel: React.FC = () => {
     error: statsError,
   } = useQuery<TaskStats, Error>({
     queryKey: ['todayTaskStats'],
-    queryFn: apiClient.getTodayTaskStats,
+    queryFn: () => apiClient.getTodayTaskStats(),
   });
 
   React.useEffect(() => {
@@ -61,19 +61,20 @@ const TodayTasksPanel: React.FC = () => {
   }, [stats, setTaskStats]);
 
   // Update task status mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
-      apiClient.updateTaskStatus(taskId, status),
-    onSuccess: (updatedTask: Task, variables) => {
-      updateTaskInList(variables.taskId, { status: variables.status as any });
+  const updateStatusMutation = useMutation<Task, Error, { taskId: string; status: Task['status'] }>({
+    mutationFn: ({ taskId, status }) => apiClient.updateTaskStatus(taskId, status),
+    onSuccess: (updatedTask) => {
+      updateTaskInList(updatedTask.id, updatedTask);
       queryClient.invalidateQueries({ queryKey: ['todayTasks'] });
       queryClient.invalidateQueries({ queryKey: ['todayTaskStats'] });
     },
   });
 
   const handleStatusToggle = (task: Task) => {
-    const nextStatus = task.status === 'DONE' ? 'TODO' :
-                      task.status === 'TODO' ? 'IN_PROGRESS' : 'DONE';
+    const nextStatus: Task['status'] =
+      task.status === 'DONE' ? 'TODO' :
+      task.status === 'TODO' ? 'IN_PROGRESS' :
+      'DONE';
 
     updateStatusMutation.mutate({
       taskId: task.id,
@@ -81,7 +82,7 @@ const TodayTasksPanel: React.FC = () => {
     });
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: Task['status']) => {
     switch (status) {
       case 'DONE':
         return <CheckCircle color="success" />;
@@ -92,7 +93,7 @@ const TodayTasksPanel: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
       case 'HIGH':
         return 'error';

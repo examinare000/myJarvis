@@ -1,9 +1,6 @@
-const API_BASE_URL = '/api/v1';
+import type { Task, TodayTaskStats, LifelogEntry, CalendarEvent } from '@/types/api';
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-}
+const API_BASE_URL = '/api/v1';
 
 class ApiClient {
   private baseURL: string;
@@ -33,33 +30,45 @@ class ApiClient {
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return response.json();
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    try {
+      return (await response.json()) as T;
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        return undefined as T;
+      }
+
+      throw error;
+    }
   }
 
   // Tasks API
-  async getTodayTasks() {
-    return this.request('/tasks/today');
+  async getTodayTasks(): Promise<Task[]> {
+    return this.request<Task[]>('/tasks/today');
   }
 
-  async updateTaskStatus(taskId: string, status: string) {
-    return this.request(`/tasks/${taskId}/status`, {
+  async updateTaskStatus(taskId: string, status: Task['status']): Promise<Task> {
+    return this.request<Task>(`/tasks/${taskId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });
   }
 
-  async getTodayTaskStats() {
-    return this.request('/tasks/stats/today');
+  async getTodayTaskStats(): Promise<TodayTaskStats> {
+    return this.request<TodayTaskStats>('/tasks/stats/today');
   }
 
   async createTask(taskData: {
-    title: string;
-    description?: string;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
-    dueDate?: string;
-    status?: 'TODO' | 'IN_PROGRESS' | 'DONE';
-  }) {
-    return this.request('/tasks', {
+    title: Task['title'];
+    description?: Task['description'];
+    priority?: Task['priority'];
+    dueDate?: Task['dueDate'];
+    status?: Task['status'];
+  }): Promise<Task> {
+    return this.request<Task>('/tasks', {
       method: 'POST',
       body: JSON.stringify(taskData),
     });
@@ -69,13 +78,13 @@ class ApiClient {
   async getLifelogEntries(params?: {
     limit?: number;
     offset?: number;
-  }) {
+  }): Promise<LifelogEntry[]> {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set('limit', params.limit.toString());
     if (params?.offset) searchParams.set('offset', params.offset.toString());
 
     const query = searchParams.toString();
-    return this.request(`/lifelog/entries${query ? `?${query}` : ''}`);
+    return this.request<LifelogEntry[]>(`/lifelog/entries${query ? `?${query}` : ''}`);
   }
 
   async createLifelogEntry(entryData: {
@@ -86,30 +95,24 @@ class ApiClient {
     locationLat?: number;
     locationLng?: number;
     locationName?: string;
-  }) {
-    return this.request('/lifelog/entries', {
+  }): Promise<LifelogEntry> {
+    return this.request<LifelogEntry>('/lifelog/entries', {
       method: 'POST',
       body: JSON.stringify(entryData),
     });
   }
 
-  async updateLifelogEntry(entryId: string, entryData: Partial<{
-    content: string;
-    tags: string[];
-    mood: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
-    images: string[];
-    locationLat: number;
-    locationLng: number;
-    locationName: string;
-  }>) {
-    return this.request(`/lifelog/entries/${entryId}`, {
+  async updateLifelogEntry(entryId: string, entryData: Partial<Omit<LifelogEntry,
+    'id' | 'createdAt' | 'updatedAt'
+  >>): Promise<LifelogEntry> {
+    return this.request<LifelogEntry>(`/lifelog/entries/${entryId}`, {
       method: 'PUT',
       body: JSON.stringify(entryData),
     });
   }
 
-  async deleteLifelogEntry(entryId: string) {
-    return this.request(`/lifelog/entries/${entryId}`, {
+  async deleteLifelogEntry(entryId: string): Promise<void> {
+    return this.request<void>(`/lifelog/entries/${entryId}`, {
       method: 'DELETE',
     });
   }
@@ -118,43 +121,36 @@ class ApiClient {
   async getCalendarEvents(params?: {
     from?: string;
     to?: string;
-  }) {
+  }): Promise<CalendarEvent[]> {
     const searchParams = new URLSearchParams();
     if (params?.from) searchParams.set('from', params.from);
     if (params?.to) searchParams.set('to', params.to);
 
     const query = searchParams.toString();
-    return this.request(`/calendar/events${query ? `?${query}` : ''}`);
+    return this.request<CalendarEvent[]>(`/calendar/events${query ? `?${query}` : ''}`);
   }
 
-  async createCalendarEvent(eventData: {
-    title: string;
-    description?: string;
-    startTime: string;
-    endTime: string;
-    color?: string;
-  }) {
-    return this.request('/calendar/events', {
+  async createCalendarEvent(eventData: Pick<CalendarEvent,
+    'title' | 'description' | 'startTime' | 'endTime' | 'color'
+  >): Promise<CalendarEvent> {
+    return this.request<CalendarEvent>('/calendar/events', {
       method: 'POST',
       body: JSON.stringify(eventData),
     });
   }
 
-  async updateCalendarEvent(eventId: string, eventData: Partial<{
-    title: string;
-    description: string;
-    startTime: string;
-    endTime: string;
-    color: string;
-  }>) {
-    return this.request(`/calendar/events/${eventId}`, {
+  async updateCalendarEvent(
+    eventId: string,
+    eventData: Partial<Pick<CalendarEvent, 'title' | 'description' | 'startTime' | 'endTime' | 'color'>>
+  ): Promise<CalendarEvent> {
+    return this.request<CalendarEvent>(`/calendar/events/${eventId}`, {
       method: 'PUT',
       body: JSON.stringify(eventData),
     });
   }
 
-  async deleteCalendarEvent(eventId: string) {
-    return this.request(`/calendar/events/${eventId}`, {
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    return this.request<void>(`/calendar/events/${eventId}`, {
       method: 'DELETE',
     });
   }

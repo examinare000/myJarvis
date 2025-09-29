@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type ManagerOptions, type Socket, type SocketOptions } from "socket.io-client";
 
-type UseSocketConfig<TMessage> = {
+type UseSocketConfig = {
   /** Fully qualified websocket endpoint, e.g. https://api.example.com */
   url: string;
   /** Event name used to collect incoming messages. Defaults to "message". */
@@ -24,7 +24,7 @@ const useSocket = <TMessage = unknown>({
   url,
   listenEvent = "message",
   options,
-}: UseSocketConfig<TMessage>): UseSocketResult<TMessage> => {
+}: UseSocketConfig): UseSocketResult<TMessage> => {
   const socketRef = useRef<Socket | null>(null);
   const [messages, setMessages] = useState<TMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
