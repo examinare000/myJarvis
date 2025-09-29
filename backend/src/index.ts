@@ -9,6 +9,7 @@ import tasksRouter from './routes/tasks';
 import lifelogRouter from './routes/lifelog';
 import calendarRouter from './routes/calendar';
 import nlParseLogRouter from './routes/nlParseLog';
+import analyticsRouter from './routes/analytics';
 import prisma from './lib/prisma';
 import { initializeWebSocket } from './lib/websocket';
 
@@ -33,6 +34,7 @@ app.use('/api/v1/tasks', tasksRouter);
 app.use('/api/v1/lifelog', lifelogRouter);
 app.use('/api/v1/calendar', calendarRouter);
 app.use('/api/v1/nlp/parse-logs', nlParseLogRouter);
+app.use('/api/v1/analytics', analyticsRouter);
 
 // API情報エンドポイント
 app.get('/api/v1', (req, res) => {
