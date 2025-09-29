@@ -60,9 +60,31 @@ export interface ContextAnalysisResponse {
 
 export class AIService {
   /**
+   * Check if AI service is available
+   */
+  static async isAvailable(): Promise<boolean> {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/health`, {
+        method: 'GET',
+        timeout: 5000,
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('AI service is not available:', error);
+      return false;
+    }
+  }
+
+  /**
    * Send chat completion request to AI service
    */
   static async chat(messages: ChatMessage[], stream: boolean = false) {
+    // Check if AI service is available
+    const isAvailable = await this.isAvailable();
+    if (!isAvailable) {
+      throw new Error('AI service is currently unavailable');
+    }
+
     const response = await fetch(`${AI_SERVICE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -73,11 +95,14 @@ export class AIService {
         messages,
         stream,
         temperature: 0.7,
+        max_tokens: 4000,
       }),
+      timeout: 30000,
     });
 
     if (!response.ok) {
-      throw new Error(`AI service error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`AI service error (${response.status}): ${errorText}`);
     }
 
     return response;
@@ -87,37 +112,79 @@ export class AIService {
    * Generate smart scheduling suggestions based on user data
    */
   static async generateSmartSchedule(request: SmartSchedulingRequest): Promise<SmartSchedulingResponse> {
-    // Prepare context for AI
-    const systemPrompt = `You are a personal scheduling assistant. Based on the user's tasks, events, and preferences,
-    create an optimized schedule. Consider:
-    1. Task priorities and deadlines
-    2. Working hours preferences
-    3. Break times and productivity patterns
-    4. Calendar conflicts
-
-    Return a structured JSON response with the optimized schedule, suggestions, and any conflicts detected.`;
-
-    const userPrompt = `Tasks: ${JSON.stringify(request.tasks)}
-    Events: ${JSON.stringify(request.events)}
-    Preferences: ${JSON.stringify(request.preferences || {})}
-
-    Please create an optimized schedule for the next 7 days.`;
-
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ];
-
-    const response = await this.chat(messages, false);
-    const data = await response.json();
-
-    // Parse AI response and structure it
     try {
-      const content = data.choices[0].message.content;
-      const parsed = JSON.parse(content);
-      return parsed as SmartSchedulingResponse;
+      // Check if AI service is available
+      const isAvailable = await this.isAvailable();
+      if (!isAvailable) {
+        console.log('AI service unavailable, using basic scheduling');
+        return this.generateBasicSchedule(request);
+      }
+
+      // Prepare context for AI
+      const systemPrompt = `You are a personal scheduling assistant. Based on the user's tasks, events, and preferences, create an optimized schedule.
+
+Consider:
+1. Task priorities (HIGH, MEDIUM, LOW) and deadlines
+2. Working hours preferences
+3. Break times and productivity patterns
+4. Calendar conflicts
+5. Task status (TODO, IN_PROGRESS, DONE)
+
+Return ONLY a valid JSON response with this exact structure:
+{
+  "optimizedSchedule": [
+    {
+      "date": "2023-10-01",
+      "tasks": [
+        {
+          "id": "task-id",
+          "title": "Task title",
+          "suggestedTime": "09:00",
+          "duration": 60,
+          "priority": "HIGH",
+          "reason": "High priority task scheduled for peak hours"
+        }
+      ],
+      "events": []
+    }
+  ],
+  "suggestions": ["Take breaks every 2 hours"],
+  "conflicts": []
+}`;
+
+      const userPrompt = `Tasks: ${JSON.stringify(request.tasks, null, 2)}
+Events: ${JSON.stringify(request.events, null, 2)}
+Preferences: ${JSON.stringify(request.preferences || {}, null, 2)}
+
+Please create an optimized schedule for the next 7 days.`;
+
+      const messages: ChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ];
+
+      const response = await this.chat(messages, false);
+      const data = await response.json();
+
+      // Parse AI response and structure it
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        const content = data.choices[0].message.content.trim();
+        console.log('AI Response content:', content);
+
+        // Try to extract JSON from the response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.optimizedSchedule && Array.isArray(parsed.optimizedSchedule)) {
+            return parsed as SmartSchedulingResponse;
+          }
+        }
+      }
+
+      console.warn('AI response format invalid, using fallback');
+      return this.generateBasicSchedule(request);
     } catch (error) {
-      // Fallback to a basic schedule if AI response is not properly formatted
+      console.error('Smart scheduling AI error:', error);
       return this.generateBasicSchedule(request);
     }
   }
@@ -126,34 +193,69 @@ export class AIService {
    * Analyze user context from lifelogs and tasks
    */
   static async analyzeContext(request: ContextAnalysisRequest): Promise<ContextAnalysisResponse> {
-    const systemPrompt = `You are a personal productivity analyst. Analyze the user's lifelogs and tasks to provide:
-    1. Productivity score and trends
-    2. Mood patterns and their impact
-    3. Actionable recommendations
-    4. Key insights about their behavior
-
-    Return a structured JSON response.`;
-
-    const userPrompt = `Lifelogs: ${JSON.stringify(request.lifelogs)}
-    Tasks: ${JSON.stringify(request.tasks)}
-    Timeframe: ${request.timeframe || 'week'}
-
-    Please analyze this data and provide insights.`;
-
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ];
-
-    const response = await this.chat(messages, false);
-    const data = await response.json();
-
     try {
-      const content = data.choices[0].message.content;
-      const parsed = JSON.parse(content);
-      return parsed as ContextAnalysisResponse;
+      // Check if AI service is available
+      const isAvailable = await this.isAvailable();
+      if (!isAvailable) {
+        console.log('AI service unavailable, using basic analysis');
+        return this.generateBasicAnalysis(request);
+      }
+
+      const systemPrompt = `You are a personal productivity analyst. Analyze the user's lifelogs and tasks to provide insights.
+
+Return ONLY a valid JSON response with this exact structure:
+{
+  "productivity": {
+    "score": 75,
+    "trend": "improving",
+    "factors": ["Task completion rate", "Time management"]
+  },
+  "mood": {
+    "dominant": "happy",
+    "patterns": [
+      {
+        "mood": "happy",
+        "frequency": 5,
+        "context": "Morning tasks"
+      }
+    ]
+  },
+  "recommendations": ["Take regular breaks", "Focus on high-priority tasks"],
+  "insights": ["You are most productive in the morning", "Task completion improves with breaks"]
+}`;
+
+      const userPrompt = `Lifelogs: ${JSON.stringify(request.lifelogs, null, 2)}
+Tasks: ${JSON.stringify(request.tasks, null, 2)}
+Timeframe: ${request.timeframe || 'week'}
+
+Analyze this data and provide productivity insights.`;
+
+      const messages: ChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ];
+
+      const response = await this.chat(messages, false);
+      const data = await response.json();
+
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        const content = data.choices[0].message.content.trim();
+        console.log('AI Analysis content:', content);
+
+        // Try to extract JSON from the response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.productivity && parsed.mood) {
+            return parsed as ContextAnalysisResponse;
+          }
+        }
+      }
+
+      console.warn('AI analysis format invalid, using fallback');
+      return this.generateBasicAnalysis(request);
     } catch (error) {
-      // Fallback to basic analysis
+      console.error('Context analysis AI error:', error);
       return this.generateBasicAnalysis(request);
     }
   }
