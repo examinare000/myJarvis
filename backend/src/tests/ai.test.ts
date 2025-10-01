@@ -19,6 +19,11 @@ describe('AI API Routes', () => {
   let testUserId: string;
 
   beforeAll(async () => {
+    // Clean up any existing test user first
+    await prisma.user.deleteMany({
+      where: { email: 'ai-test@test.com' }
+    });
+
     // Create test user
     const hashedPassword = await bcrypt.hash('testpassword', 10);
     const user = await prisma.user.create({
@@ -28,6 +33,11 @@ describe('AI API Routes', () => {
         passwordHash: hashedPassword,
       },
     });
+
+    if (!user || !user.id) {
+      throw new Error('Failed to create test user');
+    }
+
     testUserId = user.id;
 
     // Generate auth token
