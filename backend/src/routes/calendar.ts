@@ -108,10 +108,10 @@ router.post('/events', async (req: any, res) => {
       },
     });
 
-    res.status(201).json(event);
+    return res.status(201).json(event);
   } catch (error) {
     console.error('Error creating calendar event:', error);
-    res.status(500).json({ error: 'Failed to create calendar event' });
+    return res.status(500).json({ error: 'Failed to create calendar event' });
   }
 });
 
@@ -153,13 +153,13 @@ router.put('/events/:id', async (req: any, res) => {
       data: updateData,
     });
 
-    res.json(event);
+    return res.json(event);
   } catch (error) {
     if ((error as any)?.message?.includes('Record to update not found')) {
-      res.status(404).json({ error: 'Calendar event not found' });
+      return res.status(404).json({ error: 'Calendar event not found' });
     } else {
       console.error('Error updating calendar event:', error);
-      res.status(500).json({ error: 'Failed to update calendar event' });
+      return res.status(500).json({ error: 'Failed to update calendar event' });
     }
   }
 });
@@ -203,10 +203,10 @@ router.get('/events/:id', async (req: any, res) => {
       return res.status(404).json({ error: 'Calendar event not found' });
     }
 
-    res.json(event);
+    return res.json(event);
   } catch (error) {
     console.error('Error fetching calendar event:', error);
-    res.status(500).json({ error: 'Failed to fetch calendar event' });
+    return res.status(500).json({ error: 'Failed to fetch calendar event' });
   }
 });
 
