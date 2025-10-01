@@ -970,26 +970,340 @@ API-Sunset-Date: 2026-09-25
 }
 ```
 
-## 16. 実装考慮事項
+## 16. AI統合 API (Phase 3B実装完了)
 
-### 16.1 開発環境
+### 16.1 AIチャット
+
+#### POST /ai/chat
+
+OllamaベースのローカルLLMとの対話
+
+**リクエスト**:
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "今日のタスクを整理してください"
+    }
+  ],
+  "stream": false
+}
+```
+
+**レスポンス**:
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "今日のタスクは以下の通りです..."
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+### 16.2 スマートスケジューリング
+
+#### POST /ai/smart-scheduling
+
+タスクとイベントから最適スケジュールを生成
+
+**リクエスト**:
+```json
+{
+  "preferences": {
+    "workingHours": {
+      "start": "09:00",
+      "end": "18:00"
+    },
+    "breakDuration": 60,
+    "maxTasksPerDay": 5
+  }
+}
+```
+
+**レスポンス**:
+```json
+{
+  "optimizedSchedule": [
+    {
+      "date": "2025-10-02",
+      "tasks": [
+        {
+          "id": "task-1",
+          "title": "重要な会議の準備",
+          "suggestedTime": "09:00",
+          "duration": 120,
+          "priority": "HIGH",
+          "reason": "高優先度タスクのため午前中に配置"
+        }
+      ],
+      "events": []
+    }
+  ],
+  "suggestions": [
+    "午後の空き時間を活用して中優先度タスクを実行"
+  ],
+  "conflicts": []
+}
+```
+
+### 16.3 コンテキスト分析
+
+#### POST /ai/context-analysis
+
+ライフログとタスクから行動パターンを分析
+
+**リクエスト**:
+```json
+{
+  "timeframe": "week"
+}
+```
+
+**レスポンス**:
+```json
+{
+  "productivity": {
+    "score": 75,
+    "trend": "improving",
+    "factors": [
+      "タスク完了率が先週比15%向上",
+      "高優先度タスクの処理速度が改善"
+    ]
+  },
+  "mood": {
+    "dominant": "good",
+    "patterns": [
+      {
+        "mood": "great",
+        "frequency": 0.35,
+        "context": "午前中のタスク完了後に多い"
+      }
+    ]
+  },
+  "recommendations": [
+    "午前中の集中作業時間を維持",
+    "週の後半は負荷を軽減"
+  ],
+  "insights": [
+    "金曜日の生産性が最も高い傾向",
+    "'work'タグの項目は気分向上と相関"
+  ]
+}
+```
+
+### 16.4 タスク提案
+
+#### GET /ai/task-suggestions
+
+AIによる推奨タスク生成
+
+**クエリパラメータ**:
+- `context` (optional): コンテキスト情報
+
+**レスポンス**:
+```json
+{
+  "suggestions": [
+    "週次レポートの作成",
+    "プロジェクトミーティングの議事録作成",
+    "コードレビュー対応"
+  ]
+}
+```
+
+### 16.5 AIモデル一覧
+
+#### GET /ai/models
+
+利用可能なAIモデルを取得
+
+**レスポンス**:
+```json
+{
+  "models": [
+    {
+      "name": "llama2:7b",
+      "size": "3.8GB",
+      "modified_at": "2025-09-30T10:00:00Z"
+    }
+  ]
+}
+```
+
+## 17. Analytics API (Phase 3B実装完了)
+
+### 17.1 生産性分析
+
+#### GET /analytics/productivity
+
+タスク完了率、平均完了時間、優先度分布を取得
+
+**クエリパラメータ**:
+- `timeframe`: `day` | `week` | `month` | `year`
+
+**レスポンス**:
+```json
+{
+  "timeframe": "week",
+  "period": {
+    "start": "2025-09-25T00:00:00Z",
+    "end": "2025-10-02T00:00:00Z"
+  },
+  "overview": {
+    "totalTasks": 25,
+    "completedTasks": 18,
+    "inProgressTasks": 5,
+    "pendingTasks": 2,
+    "completionRate": 72,
+    "overdueTasks": 1,
+    "avgCompletionTimeHours": 4.2
+  },
+  "charts": {
+    "tasksByDay": [
+      {
+        "date": "2025-09-25",
+        "total": 5,
+        "completed": 3,
+        "inProgress": 1,
+        "pending": 1
+      }
+    ],
+    "priorityDistribution": [
+      { "priority": "HIGH", "count": 8 },
+      { "priority": "MEDIUM", "count": 12 },
+      { "priority": "LOW", "count": 5 }
+    ],
+    "statusDistribution": [
+      { "status": "DONE", "count": 18 },
+      { "status": "IN_PROGRESS", "count": 5 },
+      { "status": "TODO", "count": 2 }
+    ]
+  }
+}
+```
+
+### 17.2 気分分析
+
+#### GET /analytics/mood
+
+ライフログから気分パターンを分析
+
+**クエリパラメータ**:
+- `timeframe`: `day` | `week` | `month` | `year`
+
+**レスポンス**:
+```json
+{
+  "timeframe": "week",
+  "period": {
+    "start": "2025-09-25T00:00:00Z",
+    "end": "2025-10-02T00:00:00Z"
+  },
+  "overview": {
+    "totalEntries": 42,
+    "dominantMood": "good",
+    "moodVariety": 4
+  },
+  "charts": {
+    "moodFrequency": [
+      { "mood": "great", "count": 15 },
+      { "mood": "good", "count": 20 },
+      { "mood": "okay", "count": 5 },
+      { "mood": "bad", "count": 2 }
+    ],
+    "moodByDay": [
+      {
+        "date": "2025-09-25",
+        "moods": [
+          { "mood": "great", "count": 3 },
+          { "mood": "good", "count": 2 }
+        ]
+      }
+    ],
+    "moodTagsContext": [
+      {
+        "mood": "great",
+        "topTags": [
+          { "tag": "work", "count": 8 },
+          { "tag": "exercise", "count": 5 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 17.3 サマリー分析
+
+#### GET /analytics/summary
+
+7日間の活動概要を取得
+
+**レスポンス**:
+```json
+{
+  "period": {
+    "start": "2025-09-25T00:00:00Z",
+    "end": "2025-10-02T00:00:00Z"
+  },
+  "summary": {
+    "tasks": {
+      "total": 25,
+      "completed": 18,
+      "completionRate": 72
+    },
+    "mood": {
+      "entries": 42,
+      "dominant": "good"
+    },
+    "events": {
+      "total": 15,
+      "upcoming": 8
+    },
+    "activityTrend": [
+      {
+        "date": "2025-09-25",
+        "tasks": 5,
+        "lifelogs": 6,
+        "events": 3,
+        "total": 14
+      }
+    ]
+  }
+}
+```
+
+## 18. 実装考慮事項
+
+### 18.1 開発環境
 
 - **Swagger/OpenAPI**: API仕様書自動生成
 - **Postman Collection**: テスト用API コレクション
 - **モックサーバー**: フロントエンド開発支援
 
-### 16.2 テスト戦略
+### 18.2 テスト戦略
 
 - **単体テスト**: 各エンドポイントの機能テスト
 - **統合テスト**: 外部サービス連携テスト
 - **負荷テスト**: パフォーマンス・スケーラビリティテスト
 - **セキュリティテスト**: 脆弱性診断
 
-## 17. 関連文書
+## 19. 関連文書
 
 - [01-システムアーキテクチャ設計](/docs/design/01-システムアーキテクチャ設計.md)
 - [ADR-002: 外部サービス統合戦略](/docs/adr/ADR-002-外部サービス統合戦略.md)
 - [ADR-006: リアルタイム同期戦略](/docs/adr/ADR-006-リアルタイム同期戦略.md)
+- [ADR-008: Phase3B AI統合・Analytics実装](/docs/adr/008-phase3b-ai-analytics-integration.md)
 
 ---
 
